@@ -1,0 +1,75 @@
+export default {
+  async fetch(request, env) {
+    // --- CORS ---
+    if (request.method === "OPTIONS") {
+      return new Response("", {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+        },
+      });
+    }
+
+    if (request.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Use POST" }), {
+        status: 405,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    const message = String(body?.message ?? "").trim();
+    if (!message) {
+      return new Response(JSON.stringify({ error: "Missing message" }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
+    const stackResponse = await fetch(
+      "https://api.stack-ai.com/inference/v0/run/084f354b-fe55-4b36-ad8e-e7ec035df57f/694e2fedc9bc45bac8a7bc4e",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.STACKAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          "in-0": message,
+          "doc-0": [],
+          "user_id": "",
+        }),
+      }
+    );
+
+    const text = await stackResponse.text();
+
+    return new Response(text, {
+      status: stackResponse.status,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  },
+};

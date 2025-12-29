@@ -193,12 +193,15 @@
     <div id="chat" class="chat" aria-live="polite"></div>
 
     <div class="composer">
-      <textarea id="input" placeholder="Write a message..."></textarea>
+      <textarea id="input" placeholder="Message Eunoia AI… (Enter to send, Shift+Enter for new line)"></textarea>
       <button id="sendBtn" class="send">Send</button>
     </div>
   </div>
 
   <script>
+    let history = JSON.parse(localStorage.getItem("eunoia_history")) || [];
+    const MAX_HISTORY = 10;
+
     const ENDPOINT = "https://eunoia-backend.dylan-m-jaya.workers.dev";
 
     const chatEl = document.getElementById("chat");
@@ -250,9 +253,13 @@
     function extractReply(data) {
       return (
         data?.outputs?.["out-0"] ??
-        data?.outputs?.out0 ?? 
+        data?.outputs?.out0 ?? // just in case you rename later
         JSON.stringify(data, null, 2)
       );
+    }
+
+    function saveHistory() {
+      localStorage.setItem("eunoia_history", JSON.stringify(history));
     }
 
     async function sendMessage() {
@@ -273,12 +280,13 @@
           method: "POST",
           mode: "cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({ message, history })
         });
 
         const data = await response.json();
 
         if (!response.ok) {
+          // If function returns error JSON, show it
           typingRow.querySelector(".bubble").textContent =
             data?.error ? `Error: ${data.error}` : `Error: HTTP ${response.status}`;
           return;
