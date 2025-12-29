@@ -160,6 +160,22 @@
       box-shadow: inset 0 0 0 1px rgba(124,58,237,.35);
     }
 
+    .download{
+      border: 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(124,58,237,.95), rgba(59,130,246,.85));
+      color: white;
+      font-weight: 700;
+      cursor:pointer;
+      box-shadow: 0 10px 25px rgba(124,58,237,.20);
+      min-width: 92px;
+      transition: transform .08s ease, opacity .15s ease;
+    }
+
+    .download:active{ transform: translateY(1px); }
+    .download:disabled{ opacity:.6; cursor:not-allowed; }
+
     .send{
       border: 0;
       padding: 12px 14px;
@@ -185,7 +201,7 @@
         <div class="logo" aria-hidden="true"><span>EU</span></div>
         <div class="title">
           <h1>Eunoia AI</h1>
-          <p>Relationship advice for confused people.</p>
+          <p class="white-text">Relationship advice for confused people.</p>
         </div>
       </div>
     </div>
@@ -194,6 +210,7 @@
 
     <div class="composer">
       <textarea id="input" placeholder="Write a message..."></textarea>
+      <button id="downloadBtn" class="download">Download Chat</button>
       <button id="sendBtn" class="send">Send</button>
     </div>
   </div>
@@ -201,9 +218,97 @@
   <script>
     const ENDPOINT = "https://eunoia-backend.dylan-m-jaya.workers.dev";
 
+    const CONVO_KEY = "eunoia_conversation_id";
+
+    function getConversationId() {
+      let id = sessionStorage.getItem(CONVO_KEY);
+      if (!id) {
+        id = crypto.randomUUID();
+        sessionStorage.setItem(CONVO_KEY, id);
+      }
+      return id;
+    }
+
+    function resetConversationId() {
+      const id = crypto.randomUUID();
+      sessionStorage.setItem(CONVO_KEY, id);
+      return id;
+    }
+
+    function transcriptKey(conversationId) {
+      return `eunoia_transcript_${conversationId}`;
+    }
+
+    function loadTranscript(conversationId) {
+      try {
+        return JSON.parse(sessionStorage.getItem(transcriptKey(conversationId)) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function saveTranscript(conversationId, transcript) {
+      sessionStorage.setItem(transcriptKey(conversationId), JSON.stringify(transcript));
+    }
+
+    function addToTranscript(role, content) {
+      const conversationId = getConversationId();
+      const transcript = loadTranscript(conversationId);
+      transcript.push({ role, content, ts: Date.now() });
+      saveTranscript(conversationId, transcript);
+    }
+
+    function formatTranscriptTxt(transcript) {
+      return transcript
+        .map((m) => {
+          const time = new Date(m.ts).toLocaleString();
+          const who = m.role === "user" ? "You" : "Eunoia";
+          return `[${time}] ${who}:\n${m.content}\n`;
+        })
+        .join("\n");
+    }
+
+    function downloadFile(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadChat() {
+      const conversationId = getConversationId();
+      const transcript = loadTranscript(conversationId);
+
+      if (!transcript.length) {
+        alert("No chat to download yet.");
+        return;
+      }
+
+      const txt = formatTranscriptTxt(transcript);
+      downloadFile(`eunoia-chat-${conversationId}.txt`, txt, "text/plain");
+    }
+
+    window.addEventListener("beforeunload", (e) => {
+      const conversationId = getConversationId();
+      const transcript = loadTranscript(conversationId);
+      if (transcript.length > 0) {
+        e.preventDefault();
+        e.returnValue = ""; // triggers browser prompt
+      }
+    }); 
+
     const chatEl = document.getElementById("chat");
     const inputEl = document.getElementById("input");
     const sendBtn = document.getElementById("sendBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    downloadBtn.addEventListener("click", downloadChat);
 
     function addMessage(role, text, { typing = false } = {}) {
       const wrapper = document.createElement("div");
@@ -262,18 +367,21 @@
       if (!message) return;
 
       addMessage("user", message);
+      addToTranscript("user", message);
       inputEl.value = "";
       autoResize();
 
       sendBtn.disabled = true;
+      downloadBtn.disabled = true;
       const typingRow = addMessage("assistant", "", { typing: true });
 
       try {
+        const conversationId = getConversationId();
         const response = await fetch(ENDPOINT, {
           method: "POST",
           mode: "cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({ message, conversationId })
         });
 
         const data = await response.json();
@@ -284,13 +392,16 @@
           return;
         }
 
-        typingRow.querySelector(".bubble").textContent = extractReply(data);
+        const reply = extractReply(data);
+        typingRow.querySelector(".bubble").textContent = reply;
+        addToTranscript("assistant", reply);
       } catch (err) {
         typingRow.querySelector(".bubble").textContent =
           "Sorry, I'm having trouble right now. Please try again later. Thank you for your patience!";
         console.error(err);
       } finally {
         sendBtn.disabled = false;
+        downloadBtn.disabled = false;
         chatEl.scrollTop = chatEl.scrollHeight;
       }
     }
