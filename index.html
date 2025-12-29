@@ -288,7 +288,7 @@
         typingRow.querySelector(".bubble").textContent = extractReply(data);
       } catch (err) {
         typingRow.querySelector(".bubble").textContent =
-          "Sorry — something went wrong.";
+          "Sorry, I'm having trouble right now. Please try again later. Thank you for your patience!";
         console.error(err);
       } finally {
         sendBtn.disabled = false;
