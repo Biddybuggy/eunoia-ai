@@ -250,7 +250,7 @@
     function extractReply(data) {
       return (
         data?.outputs?.["out-0"] ??
-        data?.outputs?.out0 ?? // just in case you rename later
+        data?.outputs?.out0 ?? 
         JSON.stringify(data, null, 2)
       );
     }
@@ -279,7 +279,6 @@
         const data = await response.json();
 
         if (!response.ok) {
-          // If function returns error JSON, show it
           typingRow.querySelector(".bubble").textContent =
             data?.error ? `Error: ${data.error}` : `Error: HTTP ${response.status}`;
           return;
