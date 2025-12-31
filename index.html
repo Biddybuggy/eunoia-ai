@@ -162,15 +162,17 @@
 
     .download{
       border: 0;
-      padding: 12px 14px;
-      border-radius: 14px;
+      padding: 8px 12px;
+      border-radius: 10px;
       background: linear-gradient(135deg, rgba(124,58,237,.95), rgba(59,130,246,.85));
       color: white;
-      font-weight: 700;
+      font-weight: 600;
+      font-size: 12px;
       cursor:pointer;
-      box-shadow: 0 10px 25px rgba(124,58,237,.20);
-      min-width: 92px;
+      box-shadow: 0 4px 12px rgba(124,58,237,.20);
       transition: transform .08s ease, opacity .15s ease;
+      white-space: nowrap;
+      flex: 0 0 auto;
     }
 
     .download:active{ transform: translateY(1px); }
@@ -191,6 +193,23 @@
 
     .send:active{ transform: translateY(1px); }
     .send:disabled{ opacity:.6; cursor:not-allowed; }
+
+    @media (max-width: 640px) {
+      .download {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+      .header {
+        padding: 14px 12px 12px 12px;
+        gap: 8px;
+      }
+      .title h1 {
+        font-size: 14px;
+      }
+      .title p {
+        font-size: 11px;
+      }
+    }
   </style>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-KDMMS81SDP"></script>
   <script>
@@ -211,13 +230,13 @@
           <p class="white-text">Relationship advice for confused people.</p>
         </div>
       </div>
+      <button id="downloadBtn" class="download">Download Chat</button>
     </div>
 
     <div id="chat" class="chat" aria-live="polite"></div>
 
     <div class="composer">
       <textarea id="input" placeholder="Write a message..."></textarea>
-      <button id="downloadBtn" class="download">Download Chat</button>
       <button id="sendBtn" class="send">Send</button>
     </div>
   </div>
