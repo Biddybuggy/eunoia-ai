@@ -154,6 +154,16 @@
       text-align:left;
       transition: all .15s ease;
       width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .suggestion-icon{
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      opacity: 0.7;
     }
 
     .suggestion-btn:hover{
@@ -278,9 +288,24 @@
     <div id="chat" class="chat" aria-live="polite"></div>
 
     <div class="suggestions">
-      <button class="suggestion-btn" data-question="How do I know if they're the right person for me?">How do I know if they're the right person for me?</button>
-      <button class="suggestion-btn" data-question="What to do if they're giving mixed signals?">What to do if they're giving mixed signals?</button>
-      <button class="suggestion-btn" data-question="How long should I wait before jumping into a committed relationship?">How long should I wait before jumping into a committed relationship?</button>
+      <button class="suggestion-btn" data-question="How do I know if they're the right person for me?">
+        <svg class="suggestion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+        </svg>
+        How do I know if they're the right person for me?
+      </button>
+      <button class="suggestion-btn" data-question="What to do if they're giving mixed signals?">
+        <svg class="suggestion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        What to do if they're giving mixed signals?
+      </button>
+      <button class="suggestion-btn" data-question="How long should I wait before jumping into a committed relationship?">
+        <svg class="suggestion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        How long should I wait before jumping into a committed relationship?
+      </button>
     </div>
 
     <div class="composer">
