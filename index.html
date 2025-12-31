@@ -132,6 +132,39 @@
       40% { transform: translateY(-4px); opacity: 1; }
     }
 
+    .suggestions{
+      border-top: 1px solid var(--border);
+      padding: 12px 14px;
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+      background: rgba(255,255,255,.02);
+    }
+
+    .suggestion-btn{
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor:pointer;
+      text-align:left;
+      transition: all .15s ease;
+      width: 100%;
+    }
+
+    .suggestion-btn:hover{
+      background: rgba(124,58,237,.12);
+      border-color: rgba(124,58,237,.30);
+      transform: translateY(-1px);
+    }
+
+    .suggestion-btn:active{
+      transform: translateY(0);
+    }
+
     .composer{
       border-top: 1px solid var(--border);
       padding: 14px;
@@ -209,6 +242,14 @@
       .title p {
         font-size: 11px;
       }
+      .suggestions {
+        padding: 10px 12px;
+        gap: 6px;
+      }
+      .suggestion-btn {
+        padding: 9px 12px;
+        font-size: 12px;
+      }
     }
   </style>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-KDMMS81SDP"></script>
@@ -234,6 +275,12 @@
     </div>
 
     <div id="chat" class="chat" aria-live="polite"></div>
+
+    <div class="suggestions">
+      <button class="suggestion-btn" data-question="How do I know if they're the right person for me?">How do I know if they're the right person for me?</button>
+      <button class="suggestion-btn" data-question="What to do if they're giving mixed signals?">What to do if they're giving mixed signals?</button>
+      <button class="suggestion-btn" data-question="How long should I wait before jumping into a committed relationship?">How long should I wait before jumping into a committed relationship?</button>
+    </div>
 
     <div class="composer">
       <textarea id="input" placeholder="Write a message..."></textarea>
@@ -379,6 +426,16 @@
 
     sendBtn.addEventListener("click", sendMessage);
 
+    // Handle suggested question buttons
+    document.querySelectorAll('.suggestion-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const question = btn.getAttribute('data-question');
+        inputEl.value = question;
+        autoResize();
+        sendMessage();
+      });
+    });
+
     function extractReply(data) {
       return (
         data?.outputs?.["out-0"] ??
@@ -392,6 +449,12 @@
 
       const message = inputEl.value.trim();
       if (!message) return;
+
+      // Hide suggestions after first message
+      const suggestionsEl = document.querySelector('.suggestions');
+      if (suggestionsEl) {
+        suggestionsEl.style.display = 'none';
+      }
 
       addMessage("user", message);
       addToTranscript("user", message);
