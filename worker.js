@@ -1,3 +1,4 @@
+// NOTE: IMPLEMENTED ON CLOUDFLARE
 export default {
   async fetch(request, env) {
     // --- CORS preflight ---
