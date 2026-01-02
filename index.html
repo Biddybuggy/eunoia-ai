@@ -154,30 +154,13 @@
       border-top: none;
       padding: 12px 0;
       margin-top: 0;
-    }
-
-    .new-conversation-btn{
-      border: 1px solid var(--border);
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.03);
-      color: var(--text);
-      font-size: 14px;
-      line-height: 1.5;
-      font-weight: normal;
-      cursor:pointer;
-      text-align:left;
-      transition: all .15s ease;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      background: transparent !important;
     }
 
     .suggestion-btn{
       border: 1px solid var(--border);
       padding: 10px 14px;
-      border-radius: 999px;
+      border-radius: 20px;
       background: rgba(255,255,255,.03);
       color: var(--text);
       font-size: 14px;
@@ -292,10 +275,6 @@
         gap: 6px;
       }
       .suggestion-btn {
-        padding: 9px 12px;
-        font-size: 12px;
-      }
-      .new-conversation-btn {
         padding: 9px 12px;
         font-size: 12px;
       }
@@ -805,7 +784,7 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       refreshDiv.style.display = 'flex';
       
       const refreshBtn = document.createElement('button');
-      refreshBtn.className = 'new-conversation-btn';
+      refreshBtn.className = 'suggestion-btn';
       refreshBtn.textContent = 'Start a new conversation';
       refreshBtn.addEventListener('click', () => {
         // Triggers the same unsaved-updates warning via beforeunload.
