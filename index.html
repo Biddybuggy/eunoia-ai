@@ -147,6 +147,31 @@
       flex-direction:column;
       gap: 8px;
       background: rgba(255,255,255,.02);
+      margin-top: 12px;
+    }
+
+    .chat .suggestions{
+      border-top: none;
+      padding: 12px 0;
+      margin-top: 0;
+    }
+
+    .new-conversation-btn{
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: normal;
+      cursor:pointer;
+      text-align:left;
+      transition: all .15s ease;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .suggestion-btn{
@@ -184,80 +209,6 @@
       transform: translateY(0);
     }
 
-    .quiz-container{
-      display: none;
-      flex-direction: column;
-      padding: 18px;
-      gap: 20px;
-      overflow-y: auto;
-      flex: 1;
-      background: linear-gradient(180deg, rgba(255,255,255,.02), transparent 40%);
-    }
-
-    .quiz-container.active{
-      display: flex;
-    }
-
-    .quiz-question{
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .quiz-question-title{
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-
-    .quiz-option{
-      border: 1px solid var(--border);
-      padding: 12px 14px;
-      border-radius: 12px;
-      background: rgba(255,255,255,.03);
-      color: var(--text);
-      font-size: 14px;
-      line-height: 1.5;
-      font-weight: normal;
-      cursor:pointer;
-      text-align:left;
-      transition: all .15s ease;
-      width: 100%;
-    }
-
-    .quiz-option:hover{
-      background: rgba(124,58,237,.12);
-      border-color: rgba(124,58,237,.30);
-      transform: translateY(-1px);
-    }
-
-    .quiz-option.selected{
-      background: rgba(124,58,237,.20);
-      border-color: rgba(124,58,237,.50);
-    }
-
-    .quiz-option:active{
-      transform: translateY(0);
-    }
-
-    .quiz-submit{
-      border: 0;
-      padding: 12px 20px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, rgba(124,58,237,.95), rgba(59,130,246,.85));
-      color: white;
-      font-weight: 700;
-      font-size: 14px;
-      cursor:pointer;
-      box-shadow: 0 10px 25px rgba(124,58,237,.20);
-      transition: transform .08s ease, opacity .15s ease;
-      align-self: center;
-      margin-top: 10px;
-    }
-
-    .quiz-submit:active{ transform: translateY(1px); }
-    .quiz-submit:disabled{ opacity:.6; cursor:not-allowed; }
 
     .composer{
       border-top: 1px solid var(--border);
@@ -344,19 +295,24 @@
         padding: 9px 12px;
         font-size: 12px;
       }
-      .quiz-container {
-        padding: 14px 12px;
-        gap: 16px;
-      }
-      .quiz-question-title {
-        font-size: 14px;
-      }
-      .quiz-option {
-        padding: 10px 12px;
-        font-size: 13px;
+      .new-conversation-btn {
+        padding: 9px 12px;
+        font-size: 12px;
       }
     }
-  </style>
+  
+    /* Quiz end CTA (full-width, aligned with composer) */
+    .end-actions{
+      width:100%;
+      display:flex;
+      align-items:stretch;
+      margin: 10px 0 0;
+    }
+    .end-actions .end-action-btn{
+      width:100%;
+      display:block;
+    }
+</style>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-KDMMS81SDP"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -381,8 +337,6 @@
 
     <div id="chat" class="chat" aria-live="polite"></div>
 
-    <div id="quizContainer" class="quiz-container"></div>
-
     <div class="suggestions">
       <button class="suggestion-btn" data-question="How do I know if they're the right person for me?">
         <svg class="suggestion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -403,6 +357,8 @@
         Discover your relationship health and risk profile.
       </button>
     </div>
+
+    <div id="endActions" class="end-actions" hidden></div>
 
     <div class="composer">
       <textarea id="input" placeholder="Write a message..."></textarea>
@@ -504,7 +460,28 @@
     const inputEl = document.getElementById("input");
     const sendBtn = document.getElementById("sendBtn");
     const downloadBtn = document.getElementById("downloadBtn");
+    const composerEl = document.querySelector(".composer");
+
+    function setComposerEnabled(enabled) {
+      // Only affects the input + send button; layout remains the same.
+      inputEl.disabled = !enabled;
+      sendBtn.disabled = !enabled;
+
+      if (enabled) {
+        composerEl.style.opacity = "1";
+        composerEl.style.pointerEvents = "auto";
+      } else {
+        composerEl.style.opacity = "0.6";
+        composerEl.style.pointerEvents = "none";
+      }
+    }
     downloadBtn.addEventListener("click", downloadChat);
+
+    // Reset conversation on page load for a fresh start
+    resetConversationId();
+    
+    // Store conversation history for follow-up questions (starts fresh on each page load)
+    let conversationHistory = [];
 
     function addMessage(role, text, { typing = false } = {}) {
       const wrapper = document.createElement("div");
@@ -708,71 +685,84 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
     };
 
     let quizAnswers = {};
+    let currentQuestionIndex = 0;
+    let isQuizActive = false;
 
     function showQuiz() {
-      // Hide chat, suggestions, and composer
-      chatEl.classList.add('hidden');
+      // Clear chat and reset quiz state
+      chatEl.innerHTML = '';
+      quizAnswers = {};
+      currentQuestionIndex = 0;
+      isQuizActive = true;
+
+      // Hide end-of-quiz actions (if any)
+      const endActionsEl = document.getElementById('endActions');
+      if (endActionsEl) { endActionsEl.hidden = true; endActionsEl.innerHTML = ''; }
+      
+      // Hide suggestions and disable composer
       document.querySelector('.suggestions').style.display = 'none';
       document.querySelector('.composer').style.display = 'none';
+      inputEl.disabled = true;
       
-      // Show quiz container
-      const quizContainer = document.getElementById('quizContainer');
-      quizContainer.classList.add('active');
-      quizContainer.innerHTML = '';
+      // Show welcome message
+      addMessage('assistant', "I'll help you discover your relationship health and risk profile. Let's start with a few questions.");
       
-      // Reset answers
-      quizAnswers = {};
-      
-      // Render quiz questions
-      quizData.forEach((q, index) => {
-        const questionDiv = document.createElement('div');
-        questionDiv.className = 'quiz-question';
-        
-        const title = document.createElement('div');
-        title.className = 'quiz-question-title';
-        title.textContent = `${index + 1}. ${q.question}`;
-        questionDiv.appendChild(title);
-        
-        q.options.forEach((option, optIndex) => {
-          const optionBtn = document.createElement('button');
-          optionBtn.className = 'quiz-option';
-          optionBtn.textContent = option;
-          optionBtn.dataset.questionIndex = index;
-          optionBtn.dataset.optionIndex = optIndex;
-          
-          optionBtn.addEventListener('click', () => {
-            // Remove selected class from other options in this question
-            questionDiv.querySelectorAll('.quiz-option').forEach(opt => {
-              opt.classList.remove('selected');
-            });
-            // Add selected class to clicked option
-            optionBtn.classList.add('selected');
-            // Store answer (A=4, B=3, C=2, D=1, but we use 0-3 index, so: 0=4, 1=3, 2=2, 3=1)
-            quizAnswers[index] = 4 - optIndex;
-          });
-          
-          questionDiv.appendChild(optionBtn);
-        });
-        
-        quizContainer.appendChild(questionDiv);
-      });
-      
-      // Add submit button
-      const submitBtn = document.createElement('button');
-      submitBtn.className = 'quiz-submit';
-      submitBtn.textContent = 'Submit Quiz';
-      submitBtn.addEventListener('click', submitQuiz);
-      quizContainer.appendChild(submitBtn);
-      
-      quizContainer.scrollTop = 0;
+      // Show first question after a brief delay
+      setTimeout(() => {
+        showNextQuestion();
+      }, 500);
     }
 
-    function submitQuiz() {
-      // Check if all questions are answered
-      if (Object.keys(quizAnswers).length !== quizData.length) {
-        alert('Please answer all questions before submitting.');
+    function showNextQuestion() {
+      if (currentQuestionIndex >= quizData.length) {
+        // All questions answered, show results
+        showQuizResults();
         return;
       }
+      
+      const question = quizData[currentQuestionIndex];
+      
+      // Add question as assistant message
+      addMessage('assistant', question.question);
+      
+      // Add options as suggestion buttons
+      const suggestionsDiv = document.createElement('div');
+      suggestionsDiv.className = 'suggestions';
+      suggestionsDiv.style.display = 'flex';
+      
+      question.options.forEach((option, optIndex) => {
+        const optionBtn = document.createElement('button');
+        optionBtn.className = 'suggestion-btn';
+        optionBtn.textContent = option;
+        optionBtn.dataset.questionIndex = currentQuestionIndex;
+        optionBtn.dataset.optionIndex = optIndex;
+        
+        optionBtn.addEventListener('click', () => {
+          // Store answer (A=4, B=3, C=2, D=1, but we use 0-3 index, so: 0=4, 1=3, 2=2, 3=1)
+          quizAnswers[currentQuestionIndex] = 4 - optIndex;
+          
+          // Add user's answer as a message
+          addMessage('user', option);
+          
+          // Remove options
+          suggestionsDiv.remove();
+          
+          // Move to next question
+          currentQuestionIndex++;
+          setTimeout(() => {
+            showNextQuestion();
+          }, 500);
+        });
+        
+        suggestionsDiv.appendChild(optionBtn);
+      });
+      
+      chatEl.appendChild(suggestionsDiv);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function showQuizResults() {
+      isQuizActive = false;
       
       // Calculate score
       const totalScore = Object.values(quizAnswers).reduce((sum, score) => sum + score, 0);
@@ -788,12 +778,6 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       } else {
         result = quizResults.highRisk;
       }
-      
-      // Hide quiz, show chat
-      const quizContainer = document.getElementById('quizContainer');
-      quizContainer.classList.remove('active');
-      chatEl.classList.remove('hidden');
-      document.querySelector('.composer').style.display = 'flex';
       
       // Add result as assistant message with HTML formatting
       const resultText = `${result.title}\n\n${result.content}`;
@@ -814,10 +798,40 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       wrapper.appendChild(avatar);
       wrapper.appendChild(bubble);
       chatEl.appendChild(wrapper);
+      
+      // Add refresh button
+      const refreshDiv = document.createElement('div');
+      refreshDiv.className = 'suggestions';
+      refreshDiv.style.display = 'flex';
+      
+      const refreshBtn = document.createElement('button');
+      refreshBtn.className = 'new-conversation-btn';
+      refreshBtn.textContent = 'Start a new conversation';
+      refreshBtn.addEventListener('click', () => {
+        // Triggers the same unsaved-updates warning via beforeunload.
+        window.location.reload();
+      });
+      refreshDiv.appendChild(refreshBtn);
+      chatEl.appendChild(refreshDiv);
+      
       chatEl.scrollTop = chatEl.scrollHeight;
+      
+      // Quiz finished: keep the composer disabled until a new conversation starts.
+      composerEl.style.display = 'flex';
+      inputEl.value = '';
+      setComposerEnabled(false);
+      autoResize();
+      document.querySelector('.composer').style.display = 'none';
       
       // Add to transcript (plain text version)
       addToTranscript('assistant', resultText.replace(/<[^>]*>/g, ''));
+      
+      // Add quiz results to conversation history for AI context
+      const quizResultForHistory = `Based on your relationship health assessment, here's my analysis:\n\n${resultText.replace(/<[^>]*>/g, '')}`;
+      conversationHistory.push({ 
+        role: "assistant", 
+        content: quizResultForHistory
+      });
     }
 
     // Handle suggested question buttons
@@ -845,19 +859,23 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
     }
 
     async function sendMessage() {
-      if (sendBtn.disabled) return;
+      if (sendBtn.disabled || isQuizActive) return;
 
       const message = inputEl.value.trim();
       if (!message) return;
 
       // Hide suggestions after first message
       const suggestionsEl = document.querySelector('.suggestions');
-      if (suggestionsEl) {
+      if (suggestionsEl && !isQuizActive) {
         suggestionsEl.style.display = 'none';
       }
 
       addMessage("user", message);
       addToTranscript("user", message);
+      
+      // Add user message to conversation history
+      conversationHistory.push({ role: "user", content: message });
+      
       inputEl.value = "";
       autoResize();
 
@@ -871,7 +889,11 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
           method: "POST",
           mode: "cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message, conversationId })
+          body: JSON.stringify({ 
+            message, 
+            conversationId,
+            history: conversationHistory 
+          })
         });
 
         const data = await response.json();
@@ -885,6 +907,9 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
         const reply = extractReply(data);
         typingRow.querySelector(".bubble").textContent = reply;
         addToTranscript("assistant", reply);
+        
+        // Add assistant response to conversation history
+        conversationHistory.push({ role: "assistant", content: reply });
       } catch (err) {
         typingRow.querySelector(".bubble").textContent =
           "Sorry, I'm having trouble right now. Please try again later. Thank you for your patience!";

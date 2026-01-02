@@ -36,6 +36,14 @@ export const yourFunction = functions.https.onRequest((req, res) => {
     const conversationId = String(req.body?.conversationId ?? "").trim();
     const userId = conversationId || crypto.randomUUID();
 
+    // --- Conversation history for context ---
+    const history = Array.isArray(req.body?.history) ? req.body.history : [];
+    // Format history for StackAI (convert to chat_history format)
+    const chatHistory = history.map((msg: any) => ({
+      role: msg.role === "user" ? "user" : "assistant",
+      content: String(msg.content || ""),
+    }));
+
     try {
       // --- StackAI API key ---
       const apiKeyFromConfig = (functions.config() as any)?.stackai?.key as
@@ -65,6 +73,7 @@ export const yourFunction = functions.https.onRequest((req, res) => {
           "in-0": userMessage,
           user_id: userId,
           "doc-0": [],
+          chat_history: chatHistory,
         }),
       });
 
