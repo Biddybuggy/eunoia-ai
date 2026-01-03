@@ -291,6 +291,16 @@
       width:100%;
       display:block;
     }
+
+    .counter{
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: 6px;
+      margin-bottom: 2px;
+      user-select: none;
+      white-space: nowrap;
+    }
+
 </style>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-KDMMS81SDP"></script>
   <script>
@@ -340,7 +350,8 @@
     <div id="endActions" class="end-actions" hidden></div>
 
     <div class="composer">
-      <textarea id="input" placeholder="Write a message..."></textarea>
+      <textarea id="input" maxlength="900" placeholder="Write a message..."></textarea>
+      <div class = "counter" id = "charCount">0/900</div>
       <button id="sendBtn" class="send">Send</button>
     </div>
   </div>
@@ -441,6 +452,22 @@
     const downloadBtn = document.getElementById("downloadBtn");
     const composerEl = document.querySelector(".composer");
 
+    const MAX_CHARS = Number(inputEl.getAttribute("maxlength")) || 900;
+    const charCountEl = document.getElementById("charCount");
+
+     function updateCharCount() {
+      if (!charCountEl) return;
+      const len = inputEl.value.length;
+      charCountEl.textContent = `${len}/${MAX_CHARS}`;
+    }
+
+    function resetCharCount() {
+      if (!charCountEl) return;
+      charCountEl.textContent = `0/${MAX_CHARS}`;
+    }
+
+    updateCharCount();
+    
     function setComposerEnabled(enabled) {
       // Only affects the input + send button; layout remains the same.
       inputEl.disabled = !enabled;
@@ -453,6 +480,7 @@
         composerEl.style.opacity = "0.6";
         composerEl.style.pointerEvents = "none";
       }
+      updateCharCount();
     }
     downloadBtn.addEventListener("click", downloadChat);
 
@@ -493,7 +521,10 @@
       inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + "px";
     }
 
-    inputEl.addEventListener("input", autoResize);
+    inputEl.addEventListener("input", () => {
+      autoResize();
+      updateCharCount();
+    });
 
     inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -800,6 +831,7 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       inputEl.value = '';
       setComposerEnabled(false);
       autoResize();
+      resetCharCount();
       document.querySelector('.composer').style.display = 'none';
       
       // Add to transcript (plain text version)
@@ -837,6 +869,7 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       );
     }
 
+
     async function sendMessage() {
       if (sendBtn.disabled || isQuizActive) return;
 
@@ -857,6 +890,7 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       
       inputEl.value = "";
       autoResize();
+      resetCharCount();
 
       sendBtn.disabled = true;
       downloadBtn.disabled = true;
