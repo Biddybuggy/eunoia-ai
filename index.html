@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Eunoia AI</title>
   <link rel="stylesheet" href="style.css"/>
- 
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-KDMMS81SDP"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -26,7 +25,12 @@
           <p class="white-text">We have you covered.</p>
         </div>
       </div>
-      <button id="downloadBtn" class="download">Download Chat</button>
+      <div class="header-actions">
+        <button id="sidebarToggle" class="btn-icon" type="button" aria-label="Conversations" title="Conversations" style="display:none">≡</button>
+        <button id="newChatBtn" class="btn-secondary" type="button" style="display:none">New chat</button>
+        <div id="authArea" class="auth-area"></div>
+        <button id="downloadBtn" class="download">Download Chat</button>
+      </div>
     </div>
 
     <div id="chat" class="chat" aria-live="polite"></div>
@@ -60,6 +64,23 @@
       <button id="sendBtn" class="send">Send</button>
     </div>
   </div>
+
+  <div id="sidebar" class="sidebar">
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="sidebar-panel">
+      <div class="sidebar-header">
+        <h2>Conversations</h2>
+        <button type="button" class="btn-close-sidebar" id="sidebarClose" aria-label="Close">×</button>
+      </div>
+      <button type="button" class="sidebar-new-chat" id="sidebarNewChat">+ New chat</button>
+      <ul class="conversation-list" id="conversationList"></ul>
+    </div>
+  </div>
+
+  <script src="firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

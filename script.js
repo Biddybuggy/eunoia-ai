@@ -1,8 +1,23 @@
     const ENDPOINT = "https://eunoia-backend.dylan-m-jaya.workers.dev";
 
     const CONVO_KEY = "eunoia_conversation_id";
+    const GUEST_MESSAGE_LIMIT = 5;
+
+    // Firebase (optional): set when SDK and config are available
+    let firebaseApp = null;
+    let authUser = null;
+    let currentTranscript = [];
 
     function getConversationId() {
+      if (authUser) {
+        const key = `eunoia_current_conversation_${authUser.uid}`;
+        let id = localStorage.getItem(key);
+        if (!id) {
+          id = crypto.randomUUID();
+          localStorage.setItem(key, id);
+        }
+        return id;
+      }
       let id = sessionStorage.getItem(CONVO_KEY);
       if (!id) {
         id = crypto.randomUUID();
@@ -13,7 +28,11 @@
 
     function resetConversationId() {
       const id = crypto.randomUUID();
-      sessionStorage.setItem(CONVO_KEY, id);
+      if (authUser) {
+        localStorage.setItem(`eunoia_current_conversation_${authUser.uid}`, id);
+      } else {
+        sessionStorage.setItem(CONVO_KEY, id);
+      }
       return id;
     }
 
@@ -21,7 +40,23 @@
       return `eunoia_transcript_${conversationId}`;
     }
 
-    function loadTranscript(conversationId) {
+    function getCurrentTranscript() {
+      return currentTranscript;
+    }
+
+    async function loadFromStorage(conversationId) {
+      if (authUser && firebaseApp) {
+        try {
+          const db = firebaseApp.firestore();
+          const ref = db.collection("users").doc(authUser.uid).collection("conversations").doc(conversationId);
+          const snap = await ref.get();
+          const data = snap.exists ? snap.data() : null;
+          return Array.isArray(data?.messages) ? data.messages : [];
+        } catch (e) {
+          console.warn("Firestore load failed:", e);
+          return [];
+        }
+      }
       try {
         return JSON.parse(sessionStorage.getItem(transcriptKey(conversationId)) || "[]");
       } catch {
@@ -29,15 +64,29 @@
       }
     }
 
-    function saveTranscript(conversationId, transcript) {
+    function persistTranscript(conversationId, transcript) {
+      if (authUser && firebaseApp) {
+        try {
+          const firstUser = transcript.find((m) => m.role === "user");
+          const title = firstUser ? String(firstUser.content || "").slice(0, 60) : "New chat";
+          const db = firebaseApp.firestore();
+          const ref = db.collection("users").doc(authUser.uid).collection("conversations").doc(conversationId);
+          ref.set(
+            { updatedAt: firebase.firestore.FieldValue.serverTimestamp(), messages: transcript, title },
+            { merge: true }
+          ).catch((e) => console.warn("Firestore save failed:", e));
+        } catch (e) {
+          console.warn("Firestore save failed:", e);
+        }
+        return;
+      }
       sessionStorage.setItem(transcriptKey(conversationId), JSON.stringify(transcript));
     }
 
     function addToTranscript(role, content) {
-      const conversationId = getConversationId();
-      const transcript = loadTranscript(conversationId);
-      transcript.push({ role, content, ts: Date.now() });
-      saveTranscript(conversationId, transcript);
+      currentTranscript.push({ role, content, ts: Date.now() });
+      persistTranscript(getConversationId(), currentTranscript);
+      if (!authUser) updateGuestLimitDisplay();
     }
 
     function formatTranscriptTxt(transcript) {
@@ -66,7 +115,7 @@
 
     function downloadChat() {
       const conversationId = getConversationId();
-      const transcript = loadTranscript(conversationId);
+      const transcript = getCurrentTranscript();
 
       if (!transcript.length) {
         alert("No chat to download yet.");
@@ -78,11 +127,10 @@
     }
 
     window.addEventListener("beforeunload", (e) => {
-      const conversationId = getConversationId();
-      const transcript = loadTranscript(conversationId);
+      const transcript = getCurrentTranscript();
       if (transcript.length > 0) {
         e.preventDefault();
-        e.returnValue = ""; // triggers browser prompt
+        e.returnValue = "";
       }
     }); 
 
@@ -124,11 +172,185 @@
     }
     downloadBtn.addEventListener("click", downloadChat);
 
-    // Reset conversation on page load for a fresh start
-    resetConversationId();
-    
-    // Store conversation history for follow-up questions (starts fresh on each page load)
-    let conversationHistory = [];
+    const authAreaEl = document.getElementById("authArea");
+    const newChatBtnEl = document.getElementById("newChatBtn");
+    const sidebarToggleEl = document.getElementById("sidebarToggle");
+    const sidebarEl = document.getElementById("sidebar");
+    const sidebarOverlayEl = document.getElementById("sidebarOverlay");
+    const sidebarCloseEl = document.getElementById("sidebarClose");
+    const sidebarNewChatEl = document.getElementById("sidebarNewChat");
+    const conversationListEl = document.getElementById("conversationList");
+
+    function updateGuestLimitDisplay() {
+      const el = document.getElementById("guestLimitSpan");
+      if (!el) return;
+      const n = getCurrentTranscript().length;
+      el.textContent = `${n}/${GUEST_MESSAGE_LIMIT}`;
+      el.classList.toggle("at-limit", n >= GUEST_MESSAGE_LIMIT);
+    }
+
+    function renderAuthUI() {
+      if (!authAreaEl) return;
+      authAreaEl.innerHTML = "";
+      const hasFirebase = typeof firebase !== "undefined" && (firebase.apps?.length || !!(typeof window.firebaseConfig !== "undefined" && window.firebaseConfig?.apiKey));
+
+      if (authUser) {
+        const email = document.createElement("span");
+        email.className = "user-email";
+        email.title = authUser.email || "";
+        email.textContent = authUser.email || "Signed in";
+        const signOut = document.createElement("button");
+        signOut.type = "button";
+        signOut.className = "btn-signout";
+        signOut.textContent = "Sign out";
+        signOut.addEventListener("click", () => {
+          if (firebase?.auth) firebase.auth().signOut();
+        });
+        authAreaEl.appendChild(email);
+        authAreaEl.appendChild(signOut);
+        if (newChatBtnEl) newChatBtnEl.style.display = "";
+        if (sidebarToggleEl) sidebarToggleEl.style.display = "";
+        return;
+      }
+
+      if (newChatBtnEl) newChatBtnEl.style.display = "none";
+      if (sidebarToggleEl) sidebarToggleEl.style.display = "none";
+
+      // Sign in with Google: always shown for guests (at any message count) so they can sign in anytime.
+      if (hasFirebase) {
+        const google = document.createElement("button");
+        google.type = "button";
+        google.className = "btn-google";
+        google.innerHTML = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Sign in with Google`;
+        google.addEventListener("click", () => {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          firebase.auth().signInWithPopup(provider).catch((e) => {
+            console.warn("Sign-in failed:", e);
+            alert("Sign-in failed. Please try again or check that pop-ups are allowed.");
+          });
+        });
+        authAreaEl.appendChild(google);
+      }
+
+      const span = document.createElement("span");
+      span.id = "guestLimitSpan";
+      span.className = "guest-limit";
+      const n = getCurrentTranscript().length;
+      span.textContent = `${n}/${GUEST_MESSAGE_LIMIT}`;
+      if (n >= GUEST_MESSAGE_LIMIT) span.classList.add("at-limit");
+      authAreaEl.appendChild(span);
+    }
+
+    function showGuestLimitReachedMessage() {
+      addMessage("assistant", "You've reached the 5-message limit for guests. Sign in with Google to continue and save your conversations.");
+    }
+
+    async function loadInitialConversation() {
+      if (authUser) {
+        const cid = getConversationId();
+        currentTranscript = await loadFromStorage(cid);
+      } else {
+        resetConversationId();
+        currentTranscript = await loadFromStorage(getConversationId());
+      }
+      chatEl.innerHTML = "";
+      for (const m of currentTranscript) {
+        addMessage(m.role, m.content);
+      }
+    }
+
+    function maybeAddWelcome() {
+      if (getCurrentTranscript().length === 0) {
+        addMessage("assistant", "Hi! I'm Eunoia. Tell me what's going on, and I'll help you think it through.");
+      }
+    }
+
+    function closeSidebar() {
+      if (sidebarEl) sidebarEl.classList.remove("open");
+    }
+
+    function openSidebar() {
+      if (!sidebarEl) return;
+      sidebarEl.classList.add("open");
+      fetchConversations().then(renderConversationList);
+    }
+
+    function toggleSidebar() {
+      if (sidebarEl?.classList.contains("open")) closeSidebar();
+      else openSidebar();
+    }
+
+    async function fetchConversations() {
+      if (!authUser || !firebaseApp) return [];
+      try {
+        const db = firebaseApp.firestore();
+        const snap = await db.collection("users").doc(authUser.uid).collection("conversations")
+          .orderBy("updatedAt", "desc")
+          .limit(50)
+          .get();
+        return snap.docs.map((d) => {
+          const d_ = d.data();
+          const firstUser = (d_.messages || []).find((m) => m.role === "user");
+          const title = d_.title || (firstUser ? String(firstUser.content || "").slice(0, 60) : "New chat");
+          return { id: d.id, title, updatedAt: d_.updatedAt?.toMillis?.() || 0 };
+        });
+      } catch (e) {
+        console.warn("Fetch conversations failed:", e);
+        return [];
+      }
+    }
+
+    function renderConversationList(list) {
+      if (!conversationListEl) return;
+      conversationListEl.innerHTML = "";
+      if (!list || list.length === 0) {
+        const li = document.createElement("li");
+        li.className = "conversation-list-empty";
+        li.textContent = "No conversations yet. Start a new chat above.";
+        conversationListEl.appendChild(li);
+        return;
+      }
+      for (const it of list) {
+        const li = document.createElement("li");
+        li.className = "conversation-item";
+        li.textContent = it.title || "New chat";
+        li.addEventListener("click", () => loadConversation(it.id));
+        conversationListEl.appendChild(li);
+      }
+    }
+
+    async function loadConversation(conversationId) {
+      if (!authUser) return;
+      localStorage.setItem(`eunoia_current_conversation_${authUser.uid}`, conversationId);
+      currentTranscript = await loadFromStorage(conversationId);
+      chatEl.innerHTML = "";
+      for (const m of currentTranscript) addMessage(m.role, m.content);
+      closeSidebar();
+    }
+
+    function startNewConversation() {
+      closeSidebar();
+      isQuizActive = false;
+      resetConversationId();
+      currentTranscript = [];
+      chatEl.innerHTML = "";
+      const endActionsEl = document.getElementById("endActions");
+      if (endActionsEl) { endActionsEl.hidden = true; endActionsEl.innerHTML = ""; }
+      const suggestionsEl = document.querySelector(".suggestions");
+      if (suggestionsEl) suggestionsEl.style.display = "";
+      const comp = document.querySelector(".composer");
+      if (comp) comp.style.display = "";
+      setComposerEnabled(true);
+      maybeAddWelcome();
+      if (!authUser) updateGuestLimitDisplay();
+      renderAuthUI();
+    }
+
+    if (newChatBtnEl) newChatBtnEl.addEventListener("click", startNewConversation);
+    if (sidebarToggleEl) sidebarToggleEl.addEventListener("click", toggleSidebar);
+    if (sidebarOverlayEl) sidebarOverlayEl.addEventListener("click", closeSidebar);
+    if (sidebarCloseEl) sidebarCloseEl.addEventListener("click", closeSidebar);
+    if (sidebarNewChatEl) sidebarNewChatEl.addEventListener("click", () => { startNewConversation(); closeSidebar(); });
 
     function addMessage(role, text, { typing = false } = {}) {
       const wrapper = document.createElement("div");
@@ -476,13 +698,6 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       
       // Add to transcript (plain text version)
       addToTranscript('assistant', resultText.replace(/<[^>]*>/g, ''));
-      
-      // Add quiz results to conversation history for AI context
-      const quizResultForHistory = `Based on your relationship health assessment, here's my analysis:\n\n${resultText.replace(/<[^>]*>/g, '')}`;
-      conversationHistory.push({ 
-        role: "assistant", 
-        content: quizResultForHistory
-      });
     }
 
     // Handle suggested question buttons
@@ -516,6 +731,12 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       const message = inputEl.value.trim();
       if (!message) return;
 
+      if (!authUser && getCurrentTranscript().length >= GUEST_MESSAGE_LIMIT) {
+        showGuestLimitReachedMessage();
+        renderAuthUI();
+        return;
+      }
+
       // Hide suggestions after first message
       const suggestionsEl = document.querySelector('.suggestions');
       if (suggestionsEl && !isQuizActive) {
@@ -524,10 +745,8 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
 
       addMessage("user", message);
       addToTranscript("user", message);
-      
-      // Add user message to conversation history
-      conversationHistory.push({ role: "user", content: message });
-      const trimmedHistory = conversationHistory.slice(-10);
+
+      const trimmedHistory = getCurrentTranscript().slice(-10);
       const MAX_CHARS_PER_MESSAGE = 900;
       const cappedHistory = trimmedHistory.map(m => {
         if (m.content.length > MAX_CHARS_PER_MESSAGE) {
@@ -571,9 +790,6 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
         const reply = extractReply(data);
         typingRow.querySelector(".bubble").textContent = reply;
         addToTranscript("assistant", reply);
-        
-        // Add assistant response to conversation history
-        conversationHistory.push({ role: "assistant", content: reply });
       } catch (err) {
         typingRow.querySelector(".bubble").textContent =
           "Sorry, I'm having trouble right now. Please try again later. Thank you for your patience!";
@@ -585,5 +801,26 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       }
     }
 
-    addMessage("assistant", "Hi! I’m Eunoia. Tell me what’s going on, and I’ll help you think it through.");
-
+    (function init() {
+      const cfg = typeof window.firebaseConfig !== "undefined" && window.firebaseConfig?.apiKey;
+      if (cfg && typeof firebase !== "undefined") {
+        try {
+          firebaseApp = firebase.initializeApp(window.firebaseConfig);
+        } catch (e) {
+          if (!firebase.apps?.length) console.warn("Firebase init failed:", e);
+          else firebaseApp = firebase.app();
+        }
+      }
+      function runUI() {
+        renderAuthUI();
+        loadInitialConversation().then(maybeAddWelcome);
+      }
+      authUser = null;
+      runUI();
+      if (firebaseApp && typeof firebase !== "undefined" && firebase.auth) {
+        firebase.auth().onAuthStateChanged(function (u) {
+          authUser = u || null;
+          runUI();
+        });
+      }
+    })();
