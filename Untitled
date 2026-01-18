@@ -586,4 +586,3 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
     }
 
     addMessage("assistant", "Hi! I’m Eunoia. Tell me what’s going on, and I’ll help you think it through.");
-
