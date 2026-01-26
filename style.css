@@ -540,3 +540,9 @@
       user-select: none;
       white-space: nowrap;
     }
+
+    @media (max-width: 768px) {
+  .row {
+    flex-direction: column;
+  }
+} 
