@@ -21,14 +21,15 @@
       color: var(--text);
       min-height: 100vh;
       display:flex;
-      align-items:center;
-      justify-content:center;
+      align-items:stretch;
+      justify-content:stretch;
       padding: 24px;
     }
 
     .app{
       width: min(980px, 100%);
-      height: min(760px, 92vh);
+      height: 100dvh;              
+      max-height: 100dvh;
       display:flex;
       flex-direction:column;
       background: linear-gradient(180deg, rgba(255,255,255,.03), transparent 40%), var(--panel);
@@ -101,6 +102,44 @@
       font-size: 12px;
       flex: 0 0 auto;
       margin-top: 2px;
+    }
+
+    @media (max-width: 640px) {
+      .msg {max-width: 92%;}
+      .bubble{
+        font-size: 15px;
+        padding: 12px 14px;
+      }
+    }
+
+    .composer {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    textarea {
+      line-height: 1.45;
+    }
+
+    @media (max-width: 640px) {
+      .badge {
+        display: none;
+      }
+
+      .header {
+        align-items: flex-start;
+      }
+
+      .title h1 {
+        max-width: 180px;
+      }
+    }
+
+    .sidebar.open {
+      touch-action: none;
+    }
+
+    .sidebar-panel {
+      overscroll-behavior: contain;
     }
 
     .bubble{
@@ -468,7 +507,7 @@
 .download:active{ transform: translateY(1px); }
 .download:disabled{ opacity:.6; cursor:not-allowed; }
 
-    .send{
+.send{
       border: 0;
       padding: 12px 14px;
       border-radius: 14px;
@@ -479,12 +518,19 @@
       box-shadow: 0 10px 25px rgba(124,58,237,.20);
       min-width: 92px;
       transition: transform .08s ease, opacity .15s ease;
-    }
+}
 
-    .send:active{ transform: translateY(1px); }
-    .send:disabled{ opacity:.6; cursor:not-allowed; }
+.send:active{ transform: translateY(1px); }
+.send:disabled{ opacity:.6; cursor:not-allowed; }
 
-    @media (max-width: 640px) {
+@media (max-width: 640px) {
+      .app {
+        border-radius: 0;
+        border: none;
+      }
+}
+
+@media (max-width: 640px) {
       .download {
         padding: 6px 10px;
         font-size: 11px;
@@ -518,7 +564,7 @@
         padding: 9px 12px;
         font-size: 12px;
       }
-    }
+}
   
     /* Quiz end CTA (full-width, aligned with composer) */
     .end-actions{
@@ -527,6 +573,7 @@
       align-items:stretch;
       margin: 10px 0 0;
     }
+    
     .end-actions .end-action-btn{
       width:100%;
       display:block;
@@ -541,8 +588,11 @@
       white-space: nowrap;
     }
 
-    @media (max-width: 768px) {
-  .row {
-    flex-direction: column;
-  }
-} 
+    @media (hover: none) {
+      .suggestion-btn:hover,
+      .btn-google:hover,
+      .btn-secondary:hover {
+        transform: none;
+        background: inherit;
+      }
+    }
