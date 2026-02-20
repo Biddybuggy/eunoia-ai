@@ -23,14 +23,13 @@ body{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding: 24px;
 }
 
 /* ---------- APP CONTAINER ---------- */
 
 .app{
-  width: min(980px, 100%);
-  height: min(760px, 92vh);
+  width: 980px;
+  height: 760px;
   display:flex;
   flex-direction:column;
   background: linear-gradient(180deg, rgba(255,255,255,.03), transparent 40%), var(--panel);
