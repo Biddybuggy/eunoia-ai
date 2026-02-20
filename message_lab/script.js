@@ -15,11 +15,13 @@ if (analyzeBtn && labInput && labResults) {
     labResults.innerHTML = "<p class=\"lab-status\">Analyzing…</p>";
 
     try {
+      // Build a short instruction so the model returns 4 suggestions
+      const prompt = buildMessageLabPrompt(message, 4);
       const res = await fetch(ENDPOINT, {
         method: "POST",
         mode: "cors",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "message-lab", message })
+        body: JSON.stringify({ mode: "message-lab", message: prompt })
       });
 
       // Attempt to parse JSON; fall back to text
@@ -37,6 +39,10 @@ if (analyzeBtn && labInput && labResults) {
       console.error(err);
     }
   });
+}
+
+function buildMessageLabPrompt(message, count = 4) {
+  return `Analyze the following incoming message and produce exactly ${count} suggested responses as a JSON array. Each array item should be an object with the keys: \"strategy\" (a short name), \"reply\" (the full response text), and \"riskLevel\" (low|medium|high or a short description). Return only valid JSON (no surrounding explanation).\n\nIncoming message:\n${message}`;
 }
 
 function renderMessageLab(payload) {
