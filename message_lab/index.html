@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" sizes="32x32" href="../new_eunoia_logo.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Message Lab - Eunoia AI</title>
+  <link rel="stylesheet" href="../style.css"/>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KDMMS81SDP"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-KDMMS81SDP.');
+  </script>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"><span>EU</span></div>
+        <div class="title">
+          <h1>Message Lab</h1>
+          <p class="white-text">Analyze & craft better responses.</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="../" class="btn-secondary">Back to Chat</a>
+      </div>
+    </div>
+
+    <div id="message-lab" class="message-lab-page">
+      <div class="message-lab-container">
+        <h2>Message Lab</h2>
+        <p class="message-lab-description">Paste a confusing or unclear message to analyze it and get suggested responses.</p>
+        
+        <textarea id="incoming-msg" placeholder="Place confusing message here..." rows="6" style="width:100%;"></textarea>
+        <button id="analyze-btn" class="download">Analyze</button>
+        <div id="lab-results"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

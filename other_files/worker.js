@@ -6,12 +6,7 @@ export default {
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Max-Age": "86400",
     };
-
-    if (request.method === "OPTIONS") {
-      return new Response("", { status: 204, headers: corsHeaders });
-    }
-
-    if (request.method !== "POST") {
+};
       return new Response(JSON.stringify({ error: "Use POST" }), {
         status: 405,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -77,5 +72,8 @@ export default {
     });
   },
 };
+
+
+
 
 

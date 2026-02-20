@@ -724,6 +724,14 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
       );
     }
 
+    const chatPanel = document.getElementById("chat");
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
 
     async function sendMessage() {
       if (sendBtn.disabled || isQuizActive) return;
