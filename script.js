@@ -198,11 +198,11 @@
         const email = document.createElement("span");
         email.className = "user-email";
         email.title = authUser.email || "";
-        email.textContent = authUser.email || "Signed in";
+        email.textContent = authUser.email || "Signed In";
         const signOut = document.createElement("button");
         signOut.type = "button";
         signOut.className = "btn-signout";
-        signOut.textContent = "Sign out";
+        signOut.textContent = "Sign Out";
         signOut.addEventListener("click", () => {
           if (firebase?.auth) firebase.auth().signOut();
         });
