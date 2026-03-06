@@ -290,6 +290,7 @@ font-weight: 600;
 cursor: pointer;
 white-space: nowrap;
 transition: background .15s, border-color .15s;
+text-decoration: none;
 }
 
 .btn-secondary:hover {
