@@ -590,12 +590,15 @@ background: transparent;
   .header {
     padding: 14px 12px 12px 12px;
     gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
   }
   .header-actions {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     gap: 6px;
     flex-wrap: nowrap;
+    width: 100%;
   }
   .btn-google, .btn-signout, .btn-secondary, .btn-icon {
     padding: 6px 10px;
