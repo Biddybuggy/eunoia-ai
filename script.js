@@ -1,7 +1,6 @@
     const ENDPOINT = "https://eunoia-backend.dylan-m-jaya.workers.dev";
 
     const CONVO_KEY = "eunoia_conversation_id";
-    const GUEST_MESSAGE_LIMIT = 5;
 
     // Firebase (optional): set when SDK and config are available
     let firebaseApp = null;
@@ -86,7 +85,6 @@
     function addToTranscript(role, content) {
       currentTranscript.push({ role, content, ts: Date.now() });
       persistTranscript(getConversationId(), currentTranscript);
-      if (!authUser) updateGuestLimitDisplay();
     }
 
     function formatTranscriptTxt(transcript) {
@@ -168,6 +166,7 @@
         composerEl.style.opacity = "0.6";
         composerEl.style.pointerEvents = "none";
       }
+
       updateCharCount();
     }
     downloadBtn.addEventListener("click", downloadChat);
@@ -180,14 +179,6 @@
     const sidebarCloseEl = document.getElementById("sidebarClose");
     const sidebarNewChatEl = document.getElementById("sidebarNewChat");
     const conversationListEl = document.getElementById("conversationList");
-
-    function updateGuestLimitDisplay() {
-      const el = document.getElementById("guestLimitSpan");
-      if (!el) return;
-      const n = getCurrentTranscript().length;
-      el.textContent = `${n}/${GUEST_MESSAGE_LIMIT}`;
-      el.classList.toggle("at-limit", n >= GUEST_MESSAGE_LIMIT);
-    }
 
     function renderAuthUI() {
       if (!authAreaEl) return;
@@ -231,18 +222,6 @@
         });
         authAreaEl.appendChild(google);
       }
-
-      const span = document.createElement("span");
-      span.id = "guestLimitSpan";
-      span.className = "guest-limit";
-      const n = getCurrentTranscript().length;
-      span.textContent = `${n}/${GUEST_MESSAGE_LIMIT}`;
-      if (n >= GUEST_MESSAGE_LIMIT) span.classList.add("at-limit");
-      authAreaEl.appendChild(span);
-    }
-
-    function showGuestLimitReachedMessage() {
-      addMessage("assistant", "You've reached the 5-message limit for guests. Sign in with Google to continue and save your conversations.");
     }
 
     async function loadInitialConversation() {
@@ -342,7 +321,6 @@
       if (comp) comp.style.display = "";
       setComposerEnabled(true);
       maybeAddWelcome();
-      if (!authUser) updateGuestLimitDisplay();
       renderAuthUI();
     }
 
@@ -738,12 +716,6 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
 
       const message = inputEl.value.trim();
       if (!message) return;
-
-      if (!authUser && getCurrentTranscript().length >= GUEST_MESSAGE_LIMIT) {
-        showGuestLimitReachedMessage();
-        renderAuthUI();
-        return;
-      }
 
       // Hide suggestions after first message
       const suggestionsEl = document.querySelector('.suggestions');

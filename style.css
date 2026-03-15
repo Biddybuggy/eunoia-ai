@@ -20,6 +20,7 @@ body{
   height: 100vh;
   display:flex;
   padding: 0;
+  overscroll-behavior: none;
 }
 
 .app{
@@ -591,12 +592,15 @@ background: transparent;
     gap: 8px;
   }
   .header-actions {
-    flex-wrap: wrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     gap: 6px;
+    flex-wrap: nowrap;
   }
   .btn-google, .btn-signout, .btn-secondary, .btn-icon {
     padding: 6px 10px;
     font-size: 11px;
+    flex-shrink: 0;
   }
   .btn-icon { width: 32px; height: 32px; }
   .user-email { max-width: 100px; }
