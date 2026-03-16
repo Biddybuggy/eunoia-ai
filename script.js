@@ -686,6 +686,17 @@ Prioritize emotional safety and clarity. This may involve setting firm boundarie
         // Special handling for quiz button
         if (question === "Discover your relationship health and risk profile.") {
           showQuiz();
+        } else if (question === "How is Eunoia different from ChatGPT?") {
+          const suggestionsEl = document.querySelector('.suggestions');
+          if (suggestionsEl) {
+            suggestionsEl.style.display = 'none';
+          }
+          const info = `Eunoia is designed specifically for relationship support, with a strong focus on empathy, emotional validation, and healthy communication. Unlike general-purpose AI like ChatGPT, Eunoia follows strict guidelines: it never judges, shames, or takes sides, and it always prioritizes your emotional well-being and safety. Eunoia helps you understand your feelings, encourages healthy boundaries, and empowers you to make your own choices—without making decisions for you. Its advice is warm, grounded, and never dramatic or controlling. In serious situations, Eunoia reminds you to seek real-world help, never replacing professional support. \n\nAside from those, Eunoia consistently provides concise and actionable advice, ensuring you get the most out of every interaction. Eunoia also offers a bespoke relationship health assessment, as well as a Message Lab to come up with the best responses. \n\nEunoia emphasizes emotional safety, mutual understanding, and proactive growth, rather than just information exchange. It's like having a compassionate conversation partner who helps you navigate relationship challenges with empathy and clarity.`;
+          addMessage('user', question);
+          addToTranscript('user', question);
+          addMessage('assistant', info);
+          addToTranscript('assistant', info);
+
         } else {
           inputEl.value = question;
           autoResize();
