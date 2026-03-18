@@ -5,6 +5,8 @@ const analyzeBtn = document.getElementById("analyze-btn");
 const labInput = document.getElementById("incoming-msg");
 const labResults = document.getElementById("lab-results");
 
+const DEFAULT_STYLES = ["Gentle", "Assertive", "Casual", "Direct", "Warm"];
+
 if (analyzeBtn && labInput && labResults) {
   // make Analyze button match app styling
   analyzeBtn.classList.add('download');
@@ -15,13 +17,15 @@ if (analyzeBtn && labInput && labResults) {
     labResults.innerHTML = "<p class=\"lab-status\">Analyzing…</p>";
 
     try {
-      // Build a short instruction so the model returns 4 suggestions
-      const prompt = buildMessageLabPrompt(message, 4);
       const res = await fetch(ENDPOINT, {
         method: "POST",
         mode: "cors",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "message-lab", message: prompt })
+        body: JSON.stringify({
+          mode: "message-lab",
+          message,
+          styles: DEFAULT_STYLES
+        })
       });
 
       // Attempt to parse JSON; fall back to text
@@ -39,10 +43,6 @@ if (analyzeBtn && labInput && labResults) {
       console.error(err);
     }
   });
-}
-
-function buildMessageLabPrompt(message, count = 4) {
-  return `Analyze the following incoming message and produce exactly ${count} suggested responses as a JSON array. Each array item should be an object with the keys: \"strategy\" (a short name), \"reply\" (the full response text), and \"riskLevel\" (low|medium|high or a short description). Return only valid JSON (no surrounding explanation).\n\nIncoming message:\n${message}`;
 }
 
 function renderMessageLab(payload) {
@@ -210,17 +210,21 @@ function _renderArray(arr) {
     return;
   }
   const norm = (s) => ({
-    strategy: s.strategy ?? s.name ?? "Strategy",
+    strategy: s.strategy ?? s.style ?? s.tone ?? s.name ?? "Strategy",
     reply: s.reply ?? s.message ?? s.text ?? "",
+    explanation: s.explanation ?? s.why ?? s.rationale ?? s.signal ?? "",
     riskLevel: s.riskLevel ?? s.risk_level ?? s.risk ?? ""
   });
 
   labResults.innerHTML = "<div class=\"lab-grid\">" + arr.map((s, i) => {
     const n = norm(s);
+    const metaLines = [];
+    if (n.explanation) metaLines.push(`<p class="lab-expl">${escapeHtml(n.explanation)}</p>`);
+    if (n.riskLevel) metaLines.push(`<p class="lab-meta"><strong>Risk Level:</strong> ${escapeHtml(n.riskLevel)}</p>`);
     return `<div class="lab-card" data-index="${i}">
       <h4>${escapeHtml(n.strategy)}</h4>
       <p class="lab-reply">"${escapeHtml(n.reply)}"</p>
-      <p class="lab-meta"><strong>Risk Level:</strong> ${escapeHtml(n.riskLevel)}</p>
+      ${metaLines.join("")}
     </div>`;
   }).join("") + "</div>";
 }

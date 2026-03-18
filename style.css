@@ -429,6 +429,13 @@ color: var(--text);
   color: var(--muted);
 }
 
+.lab-expl{
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px 0 0;
+  line-height: 1.45;
+}
+
 .use-reply {
   margin-top: 10px;
   padding: 8px 12px;

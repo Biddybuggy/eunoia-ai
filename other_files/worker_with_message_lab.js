@@ -102,7 +102,10 @@ async function handleMessageLab({ message, body, env, corsHeaders }) {
     });
   }
 
-  const riskProfile = body?.riskProfile || "unknown";
+  const styles = Array.isArray(body?.styles) && body.styles.length
+    ? body.styles.map((s) => String(s).trim()).filter(Boolean).slice(0, 5)
+    : ["Gentle", "Assertive", "Casual", "Direct", "Warm"];
+  const styleList = styles.map((s) => `- ${s}`).join("\n");
 
   const prompt = `
 You are a relationship decision assistant.
@@ -110,19 +113,18 @@ You are a relationship decision assistant.
 The user received this message:
 "${message}"
 
-User risk profile:
-${riskProfile}
+Generate ${styles.length} DIFFERENT reply options, each with a distinct communication style from this list (use each exactly once):
+${styleList}
 
-Generate exactly 4 DIFFERENT reply strategies.
+Return ONLY valid JSON as an array of objects. Each object MUST have:
+- style (string; one of the styles above)
+- reply (string; the exact message the user can send)
+- explanation (string; 1 short sentence explaining why/when this reply works)
 
-For each strategy, return:
-- strategy (short name)
-- reply (exact message text)
-- signal (what this communicates)
-- riskLevel (low, medium, or high)
-- likelyOutcome (1 sentence)
-
-Return ONLY valid JSON as an array.
+Constraints:
+- Keep replies realistic and human, not robotic
+- Do not include threats, ultimatums, or insults
+- No therapy disclaimers, no extra commentary outside the JSON
 `;
 
   const stackResponse = await fetch(
@@ -159,7 +161,14 @@ Return ONLY valid JSON as an array.
 
   const strategies = extractStrategiesArray(modelText);
   if (strategies && strategies.length > 0) {
-    return new Response(JSON.stringify({ strategies }), {
+    // Normalize keys so frontend can render consistently
+    const normalized = strategies.map((s) => ({
+      strategy: s?.style ?? s?.strategy ?? s?.tone ?? s?.name ?? "Reply option",
+      reply: s?.reply ?? s?.message ?? s?.text ?? "",
+      explanation: s?.explanation ?? s?.why ?? s?.rationale ?? s?.signal ?? "",
+      riskLevel: s?.riskLevel ?? s?.risk_level ?? s?.risk ?? ""
+    }));
+    return new Response(JSON.stringify({ strategies: normalized }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
