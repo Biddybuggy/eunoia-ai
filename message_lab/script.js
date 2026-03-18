@@ -5,7 +5,7 @@ const analyzeBtn = document.getElementById("analyze-btn");
 const labInput = document.getElementById("incoming-msg");
 const labResults = document.getElementById("lab-results");
 
-const DEFAULT_STYLES = ["Gentle", "Assertive", "Casual", "Direct", "Warm"];
+const DEFAULT_STYLES = ["Gentle", "Assertive", "Casual", "Confident",  "Friendly", "Direct"];
 
 if (analyzeBtn && labInput && labResults) {
   // make Analyze button match app styling
@@ -13,7 +13,6 @@ if (analyzeBtn && labInput && labResults) {
   analyzeBtn.addEventListener("click", async () => {
     const message = labInput.value.trim();
     if (!message) return;
-
     labResults.innerHTML = "<p class=\"lab-status\">Analyzing…</p>";
 
     try {
@@ -46,25 +45,48 @@ if (analyzeBtn && labInput && labResults) {
 }
 
 function renderMessageLab(payload) {
+  // Optional: show backend debug info only when explicitly enabled
+  const showDebug = (() => {
+    try { return new URLSearchParams(window.location.search).has("debug"); }
+    catch (_) { return false; }
+  })();
+  const debugLine = (() => {
+    if (!showDebug) return "";
+    const d = payload && typeof payload === "object" ? payload.debug : null;
+    if (!d) return "";
+    const req = typeof d.requestedCount === "number" ? d.requestedCount : "?";
+    const got = typeof d.parsedCount === "number" ? d.parsedCount : "?";
+    return `<p class="lab-status">Options requested: ${escapeHtml(req)} • Options returned: ${escapeHtml(got)}</p>`;
+  })();
+
   // Preferred: backend already parsed strategies array
   if (typeof payload === "object" && payload !== null && Array.isArray(payload.strategies)) {
-    return _renderArray(payload.strategies);
+    _renderArray(payload.strategies);
+    if (debugLine) labResults.insertAdjacentHTML("afterbegin", debugLine);
+    return;
   }
 
   // Fallback contract: { raw: "<model text>" }
   if (typeof payload === "object" && payload !== null && payload.raw) {
-    return typeof payload.raw === "string"
+    const out = typeof payload.raw === "string"
       ? _tryParseText(payload.raw)
       : renderMessageLab(payload.raw);
+    if (debugLine) labResults.insertAdjacentHTML("afterbegin", debugLine);
+    return out;
   }
 
   // Direct array
-  if (Array.isArray(payload)) return _renderArray(payload);
+  if (Array.isArray(payload)) {
+    _renderArray(payload);
+    if (debugLine) labResults.insertAdjacentHTML("afterbegin", debugLine);
+    return;
+  }
 
   // Try to discover an array anywhere inside an object
   if (typeof payload === "object" && payload !== null) {
     const nested = findArrayInObject(payload);
-    if (nested) return _renderArray(nested);
+    // Only treat nested arrays as strategies if they look like [{ reply: ... }, ...]
+    if (nested && looksLikeStrategiesArray(nested)) return _renderArray(nested);
     const outText =
       payload?.outputs?.["out-0"] || payload?.outputs?.out0 || payload?.text || payload?.result || null;
     if (outText) return _tryParseText(outText);
@@ -80,6 +102,16 @@ function renderMessageLab(payload) {
   }
 
   labResults.innerHTML = `<p class="lab-error">Invalid response format.</p><pre class="lab-raw">${escapeHtml(JSON.stringify(payload))}</pre>`;
+}
+
+function looksLikeStrategiesArray(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return false;
+  const sample = arr.slice(0, Math.min(3, arr.length));
+  return sample.every((x) => {
+    if (!x || typeof x !== "object") return false;
+    const reply = x.reply ?? x.message ?? x.text ?? "";
+    return typeof reply === "string" && reply.trim().length > 0;
+  });
 }
 
 function findStrategyLikeString(obj) {

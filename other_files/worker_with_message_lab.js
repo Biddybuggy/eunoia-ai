@@ -102,18 +102,33 @@ async function handleMessageLab({ message, body, env, corsHeaders }) {
     });
   }
 
+  const MAX_STYLES = 6;
   const styles = Array.isArray(body?.styles) && body.styles.length
-    ? body.styles.map((s) => String(s).trim()).filter(Boolean).slice(0, 5)
-    : ["Gentle", "Assertive", "Casual", "Direct", "Warm"];
-  const styleList = styles.map((s) => `- ${s}`).join("\n");
+    ? body.styles.map((s) => String(s).trim()).filter(Boolean).slice(0, MAX_STYLES)
+    : ["Gentle", "Assertive", "Casual", "Confident",  "Friendly", "Direct"];
+  const runId = "084f354b-fe55-4b36-ad8e-e7ec035df57f";
+  const deploymentId = "694e2fedc9bc45bac8a7bc4e";
 
-  const prompt = `
+  const requestedCount = styles.length;
+  const requestedStyles = styles.slice();
+
+  const debug = {
+    requestedCount,
+    requestedStyles,
+    attempts: 0,
+    parsedCount: 0,
+    missingStyles: [],
+  };
+
+  const buildPrompt = (styleSubset, { onlyMissing } = { onlyMissing: false }) => {
+    const styleList = styleSubset.map((s) => `- ${s}`).join("\n");
+    return `
 You are a relationship decision assistant.
 
 The user received this message:
 "${message}"
 
-Generate ${styles.length} DIFFERENT reply options, each with a distinct communication style from this list (use each exactly once):
+${onlyMissing ? `You MUST generate ONLY the remaining reply options for the styles below.` : `Generate ${styleSubset.length} DIFFERENT reply options, each with a distinct communication style from this list (use each exactly once):`}
 ${styleList}
 
 Return ONLY valid JSON as an array of objects. Each object MUST have:
@@ -122,53 +137,110 @@ Return ONLY valid JSON as an array of objects. Each object MUST have:
 - explanation (string; 1 short sentence explaining why/when this reply works)
 
 Constraints:
+- Return EXACTLY ${styleSubset.length} objects (no more, no fewer)
+- Use each style EXACTLY once, and spell it exactly as provided
+- Keep each reply under 240 characters (short, natural, text-message length)
+- Keep each explanation under 140 characters
 - Keep replies realistic and human, not robotic
 - Do not include threats, ultimatums, or insults
 - No therapy disclaimers, no extra commentary outside the JSON
 `;
+  };
 
-  const stackResponse = await fetch(
-    "https://api.stack-ai.com/inference/v0/run/084f354b-fe55-4b36-ad8e-e7ec035df57f/694e2fedc9bc45bac8a7bc4e",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.STACKAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        "in-0": prompt,
-        "doc-0": [],
-        user_id: crypto.randomUUID(),
-        chat_history: [],
-      }),
+  const callStack = async (prompt) => {
+    debug.attempts += 1;
+    const resp = await fetch(
+      `https://api.stack-ai.com/inference/v0/run/${runId}/${deploymentId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.STACKAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          "in-0": prompt,
+          "doc-0": [],
+          user_id: crypto.randomUUID(),
+          chat_history: [],
+        }),
+      }
+    );
+
+    const text = await resp.text();
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return { modelText: null, strategies: null, rawResponseText: text };
     }
-  );
+    const rawOutput = parsed?.outputs?.["out-0"] ?? parsed?.outputs?.out0 ?? parsed?.output ?? null;
+    const modelText = typeof rawOutput === "string" ? rawOutput : JSON.stringify(rawOutput);
+    const strategies = extractStrategiesArray(modelText);
+    return { modelText, strategies, rawResponseText: null };
+  };
 
-  const text = await stackResponse.text();
+  const normalizeStyle = (s) => String(s || "").trim().toLowerCase();
 
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return new Response(JSON.stringify({ error: "Invalid response from Stack AI" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const rawOutput = parsed?.outputs?.["out-0"] ?? parsed?.outputs?.out0 ?? parsed?.output ?? null;
-  const modelText = typeof rawOutput === "string" ? rawOutput : JSON.stringify(rawOutput);
-
-  const strategies = extractStrategiesArray(modelText);
-  if (strategies && strategies.length > 0) {
-    // Normalize keys so frontend can render consistently
-    const normalized = strategies.map((s) => ({
+  const normalizeStrategies = (strategiesArr) =>
+    (strategiesArr || []).map((s) => ({
       strategy: s?.style ?? s?.strategy ?? s?.tone ?? s?.name ?? "Reply option",
       reply: s?.reply ?? s?.message ?? s?.text ?? "",
       explanation: s?.explanation ?? s?.why ?? s?.rationale ?? s?.signal ?? "",
       riskLevel: s?.riskLevel ?? s?.risk_level ?? s?.risk ?? ""
     }));
-    return new Response(JSON.stringify({ strategies: normalized }), {
+
+  const mergeByStyle = (existing, incoming) => {
+    const out = [];
+    const seen = new Set();
+    const push = (item) => {
+      const key = normalizeStyle(item?.strategy);
+      if (!key) return;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(item);
+    };
+    (existing || []).forEach(push);
+    (incoming || []).forEach(push);
+    return out;
+  };
+
+  // Attempt 1: ask for all requested styles
+  const first = await callStack(buildPrompt(requestedStyles, { onlyMissing: false }));
+  const firstNorm = first.strategies ? normalizeStrategies(first.strategies) : [];
+
+  // If short, attempt 2: ask only for missing styles
+  const present = new Set(firstNorm.map((s) => normalizeStyle(s.strategy)));
+  const missing = requestedStyles.filter((st) => !present.has(normalizeStyle(st)));
+  debug.missingStyles = missing;
+
+  let merged = firstNorm;
+  let fallbackRaw = first.modelText;
+
+  if (merged.length < requestedCount && missing.length) {
+    const second = await callStack(buildPrompt(missing, { onlyMissing: true }));
+    const secondNorm = second.strategies ? normalizeStrategies(second.strategies) : [];
+    merged = mergeByStyle(merged, secondNorm);
+    fallbackRaw = fallbackRaw || second.modelText;
+  }
+
+  // Order output to match requestedStyles, and cap to requestedCount
+  const ordered = [];
+  const byKey = new Map(merged.map((s) => [normalizeStyle(s.strategy), s]));
+  for (const st of requestedStyles) {
+    const hit = byKey.get(normalizeStyle(st));
+    if (hit) ordered.push(hit);
+  }
+  // If model used unexpected style names, append leftovers
+  for (const s of merged) {
+    if (ordered.includes(s)) continue;
+    ordered.push(s);
+  }
+
+  const finalStrategies = ordered.slice(0, requestedCount);
+  debug.parsedCount = finalStrategies.length;
+
+  if (finalStrategies.length > 0) {
+    return new Response(JSON.stringify({ strategies: finalStrategies, debug }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -176,7 +248,7 @@ Constraints:
 
   // Fallback: send raw model text for frontend-side parsing
   return new Response(
-    JSON.stringify({ raw: modelText }),
+    JSON.stringify({ raw: fallbackRaw ?? "", debug }),
     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }
