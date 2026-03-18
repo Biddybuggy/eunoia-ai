@@ -61,7 +61,7 @@ function renderMessageLab(payload) {
 
   // Preferred: backend already parsed strategies array
   if (typeof payload === "object" && payload !== null && Array.isArray(payload.strategies)) {
-    _renderArray(payload.strategies);
+    _renderArray(payload.strategies, payload.recommended || null);
     if (debugLine) labResults.insertAdjacentHTML("afterbegin", debugLine);
     return;
   }
@@ -77,7 +77,7 @@ function renderMessageLab(payload) {
 
   // Direct array
   if (Array.isArray(payload)) {
-    _renderArray(payload);
+    _renderArray(payload, null);
     if (debugLine) labResults.insertAdjacentHTML("afterbegin", debugLine);
     return;
   }
@@ -236,11 +236,13 @@ function extractCompleteStrategyObjects(txt) {
   return out;
 }
 
-function _renderArray(arr) {
+function _renderArray(arr, recommended) {
   if (!arr.length) {
     labResults.innerHTML = "<p class=\"lab-error\">No strategies returned.</p>";
     return;
   }
+  const recStyle = recommended?.style ? String(recommended.style).trim().toLowerCase() : "";
+  const recReason = recommended?.reason ? String(recommended.reason).trim() : "";
   const norm = (s) => ({
     strategy: s.strategy ?? s.style ?? s.tone ?? s.name ?? "Strategy",
     reply: s.reply ?? s.message ?? s.text ?? "",
@@ -250,10 +252,12 @@ function _renderArray(arr) {
 
   labResults.innerHTML = "<div class=\"lab-grid\">" + arr.map((s, i) => {
     const n = norm(s);
+    const isRec = recStyle && String(n.strategy).trim().toLowerCase() === recStyle;
     const metaLines = [];
+    if (isRec) metaLines.push(`<p class="lab-meta"><strong>Recommended</strong>${recReason ? ` — ${escapeHtml(recReason)}` : ""}</p>`);
     if (n.explanation) metaLines.push(`<p class="lab-expl">${escapeHtml(n.explanation)}</p>`);
     if (n.riskLevel) metaLines.push(`<p class="lab-meta"><strong>Risk Level:</strong> ${escapeHtml(n.riskLevel)}</p>`);
-    return `<div class="lab-card" data-index="${i}">
+    return `<div class="lab-card${isRec ? " lab-card-recommended" : ""}" data-index="${i}">
       <h4>${escapeHtml(n.strategy)}</h4>
       <p class="lab-reply">"${escapeHtml(n.reply)}"</p>
       ${metaLines.join("")}

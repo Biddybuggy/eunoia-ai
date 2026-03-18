@@ -240,7 +240,51 @@ Constraints:
   debug.parsedCount = finalStrategies.length;
 
   if (finalStrategies.length > 0) {
-    return new Response(JSON.stringify({ strategies: finalStrategies, debug }), {
+    // Ask the model to recommend ONE option among the generated strategies.
+    // This is a separate, small call so the generation step stays stable.
+    let recommended = null;
+    try {
+      const compact = finalStrategies.map((s) => ({
+        style: s.strategy,
+        reply: s.reply,
+        explanation: s.explanation
+      }));
+      const recPrompt = `
+You are helping the user choose the best reply to send.
+
+Incoming message:
+"${message}"
+
+Here are the candidate reply options (JSON):
+${JSON.stringify(compact)}
+
+Pick the single BEST option for a healthy outcome (de-escalate, clarify, keep dignity).
+Return ONLY valid JSON with:
+- style (string; exactly one of the style values above)
+- reason (string; 1 short sentence)
+`;
+      const rec = await callStack(recPrompt);
+      const recArr = rec?.strategies;
+      // Some models accidentally return an array; accept first object in that case.
+      const parseObj = (txt) => {
+        if (!txt || typeof txt !== "string") return null;
+        const t = txt.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+        try { return JSON.parse(t); } catch (_) { return null; }
+      };
+      let recObj = null;
+      if (Array.isArray(recArr) && recArr.length && recArr[0] && typeof recArr[0] === "object") recObj = recArr[0];
+      if (!recObj) recObj = parseObj(rec.modelText);
+      if (Array.isArray(recObj)) recObj = recObj[0] || null;
+      if (recObj && typeof recObj === "object") {
+        const style = String(recObj.style ?? recObj.strategy ?? recObj.tone ?? recObj.name ?? "").trim();
+        const reason = String(recObj.reason ?? recObj.explanation ?? recObj.why ?? "").trim();
+        if (style) recommended = { style, reason };
+      }
+    } catch (_) {
+      // ignore recommendation failures; still return strategies
+    }
+
+    return new Response(JSON.stringify({ strategies: finalStrategies, recommended, debug }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
